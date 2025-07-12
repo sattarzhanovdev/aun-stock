@@ -34,7 +34,7 @@ const Kassa = () => {
   }, [])
 
   useEffect(() => {
-    fetch(`${BRANCH_URLS[branch]}/clients/stocks/`)
+    fetch(`https://auncrm2.pythonanywhere.com/clients/stocks/`)
       .then(res => res.json())
       .then(r => {
         const enriched = r.map(g => ({ ...g, code_array: g.code.split(',').map(c => c.trim()) }))
