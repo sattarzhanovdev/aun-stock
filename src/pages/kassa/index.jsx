@@ -110,7 +110,7 @@ const Kassa = () => {
   const handleSendToStock = async () => {
     if (!cart.length) return alert('Корзина пуста')
 
-    const url = `http://127.0.0.1:8000/clients/dispatches/`
+    const url = `https://auncrm.pythonanywhere.com/clients/dispatches/`
 
     const items = cart.map(i => ({
       // stock: i.id, ← УБРАНО, потому что ID не из локальной БД
