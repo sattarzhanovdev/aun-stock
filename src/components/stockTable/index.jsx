@@ -13,7 +13,7 @@ const StockTable = () => {
   const [selectedWeek, setSelectedWeek] = React.useState(5);
   const [categories, setCategories] = React.useState([]);
   const [selectedCategory, setSelectedCategory] = React.useState('');
-  const [selectedBranch, setSelectedBranch] = React.useState('sokuluk');
+  const [selectedBranch, setSelectedBranch] = React.useState('stock');
 
   const branchAPI = selectedBranch === 'sokuluk'
     ? 'https://auncrm.pythonanywhere.com'
@@ -71,8 +71,8 @@ const StockTable = () => {
           onChange={e => setSelectedBranch(e.target.value)}
           style={{ padding: 6 }}
         >
+          <option value="stock" selected>Склад</option>
           <option value="sokuluk">Сокулук</option>
-          <option value="stock">Склад</option>
         </select>
       </div>
 

@@ -1,4 +1,4 @@
-import React, { use, useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API } from '../../api'
 
@@ -16,11 +16,10 @@ const BRANCH_URLS = {
 const Kassa = () => {
   const [goods, setGoods] = useState([])
   const [cart, setCart] = useState([])
-  const [branch, setBranch] = useState('Сокулук')
+  const [branch, setBranch] = useState('Беловодское')
   const [query, setQuery] = useState('')
   const [suggest, setSuggest] = useState([])
   const [highlight, setHighlight] = useState(-1)
-  const [multipleMatches, setMultipleMatches] = useState(null)
   const [categories, setCategories] = useState([])
 
   const scanRef = useRef()
@@ -29,19 +28,22 @@ const Kassa = () => {
   const total = cart.reduce((s, i) => s + i.qty * +i.price, 0)
 
   useEffect(() => {
-    API.getCategories()
-      .then(res => setCategories(res.data))
+    API.getCategories().then(res => setCategories(res.data))
   }, [])
 
+  // База товаров всегда из Беловодского
   useEffect(() => {
-    fetch(`https://auncrm2.pythonanywhere.com/clients/stocks/`)
+    fetch(`${BRANCH_URLS['Беловодское']}/clients/stocks/`)
       .then(res => res.json())
       .then(r => {
-        const enriched = r.map(g => ({ ...g, code_array: g.code.split(',').map(c => c.trim()) }))
+        const enriched = r.map(g => ({
+          ...g,
+          code_array: g.code.split(',').map(c => c.trim()),
+        }))
         setGoods(enriched)
       })
       .catch(e => console.error('Ошибка загрузки товаров', e))
-  }, [branch])
+  }, [])
 
   const handleScan = e => {
     if (e.key !== 'Enter') return
@@ -52,10 +54,8 @@ const Kassa = () => {
 
     if (matches.length === 0) {
       alert('Товар не найден')
-    } else if (matches.length === 1) {
-      addToCart(matches[0])
     } else {
-      setMultipleMatches(matches)
+      addToCart(matches[0])
     }
 
     e.target.value = ''
@@ -96,25 +96,40 @@ const Kassa = () => {
   const addToCart = item => {
     setCart(prev => {
       const ex = prev.find(p => p.id === item.id)
-      return ex ? prev.map(p => p.id === item.id ? { ...p, qty: p.qty + 1 } : p) : [...prev, { ...item, qty: 1 }]
+      return ex
+        ? prev.map(p => (p.id === item.id ? { ...p, qty: p.qty + 1 } : p))
+        : [...prev, { ...item, qty: 1 }]
     })
-    console.log(item);
-    
   }
 
-  const changeQty = (i, d) => setCart(p => p.map((r, idx) => idx === i ? { ...r, qty: Math.max(1, r.qty + d) } : r))
-  const setQtyManual = (i, v) => setCart(p => p.map((r, idx) => idx === i ? { ...r, qty: Math.max(1, parseInt(v) || 1) } : r))
-  const updatePrice = (i, value) => setCart(p => p.map((r, idx) => idx === i ? { ...r, price: parseFloat(value) || 0 } : r))
+  const changeQty = (i, d) =>
+    setCart(p =>
+      p.map((r, idx) => (idx === i ? { ...r, qty: Math.max(1, r.qty + d) } : r))
+    )
+
+  const setQtyManual = (i, v) =>
+    setCart(p =>
+      p.map((r, idx) =>
+        idx === i ? { ...r, qty: Math.max(1, parseInt(v) || 1) } : r
+      )
+    )
+
+  const updatePrice = (i, value) =>
+    setCart(p =>
+      p.map((r, idx) =>
+        idx === i ? { ...r, price: parseFloat(value) || 0 } : r
+      )
+    )
+
   const removeRow = idx => setCart(p => p.filter((_, i) => i !== idx))
 
   const handleSendToStock = async () => {
     if (!cart.length) return alert('Корзина пуста')
 
-    const url = `https://auncrm.pythonanywhere.com/clients/dispatches/`
+    const dispatchUrl = `${BRANCH_URLS['Сокулук']}/clients/dispatches/`
 
     const items = cart.map(i => ({
-      // stock: i.id, ← УБРАНО, потому что ID не из локальной БД
-      code: i.code.split(',').map(c => c.trim())[0],
+      code: i.code.split(',')[0],
       name: i.name,
       quantity: i.qty,
       price: +i.price,
@@ -123,15 +138,15 @@ const Kassa = () => {
 
     const payload = {
       recipient: branch,
-      comment: `Отправка из интерфейса Kassa (${branch})`,
-      items: items
+      comment: `Отправка из интерфейса Kassa (Сокулук → ${branch})`,
+      items,
     }
 
     try {
-      const res = await fetch(url, {
+      const res = await fetch(dispatchUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       })
 
       if (!res.ok) {
@@ -140,11 +155,37 @@ const Kassa = () => {
         throw new Error('Ошибка API')
       }
 
-      alert('Успешно отправлено в историю отправок 📦')
+      // уменьшаем остатки на складе Сокулук по id
+      for (const item of cart) {
+        try {
+          const updateUrl = `${BRANCH_URLS['Беловодское']}/clients/stocks/${item.id}/`
+
+          const updatedPayload = {
+            code: item.code,
+            name: item.name,
+            quantity: item.quantity - item.qty,
+            price: item.price,
+            price_seller: item.price_seller || 0,
+            category_id: categories && categories.find(val => val.name === item.category)?.id || null,
+            unit: item.unit,
+            fixed_quantity: item.fixed_quantity || item.quantity
+          }
+
+          await fetch(updateUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedPayload),
+          })
+        } catch (err) {
+          console.warn('Ошибка при уменьшении остатка по ID:', err)
+        }
+      }
+
+      alert('Успешно отправлено 📦 и остатки уменьшены')
       setCart([])
     } catch (e) {
       console.error(e)
-      alert('Ошибка при отправке в /dispatches/')
+      alert('Ошибка при отправке в склад')
     }
   }
 
@@ -160,12 +201,22 @@ const Kassa = () => {
         </select>
       </div>
 
-      <input ref={scanRef} onKeyDown={handleScan} placeholder="Сканируйте штрих-код…"
-        style={{ width: '100%', padding: 12, fontSize: 16, marginBottom: 20 }} />
+      <input
+        ref={scanRef}
+        onKeyDown={handleScan}
+        placeholder="Сканируйте штрих-код…"
+        style={{ width: '100%', padding: 12, fontSize: 16, marginBottom: 20 }}
+      />
 
       <div style={{ position: 'relative' }}>
-        <input ref={nameRef} value={query} onChange={handleNameChange} onKeyDown={keyNav} placeholder="Название товара…"
-          style={{ width: '100%', padding: 12, fontSize: 16, marginBottom: 20 }} />
+        <input
+          ref={nameRef}
+          value={query}
+          onChange={handleNameChange}
+          onKeyDown={keyNav}
+          placeholder="Название товара…"
+          style={{ width: '100%', padding: 12, fontSize: 16, marginBottom: 20 }}
+        />
         {suggest.length > 0 && (
           <ul style={{ position: 'absolute', zIndex: 1000, top: 48, left: 0, right: 0, maxHeight: 180, overflowY: 'auto', background: '#fff', border: '1px solid #ccc', listStyle: 'none', margin: 0, padding: 0 }}>
             {suggest.map((s, i) => (
@@ -219,4 +270,4 @@ const Kassa = () => {
   )
 }
 
-export default Kassa;
+export default Kassa

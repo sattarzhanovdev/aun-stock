@@ -13,7 +13,7 @@ const DispatchHistory = () => {
   }, [])
 
   React.useEffect(() => {
-    fetch('http://127.0.0.1:8000/clients/dispatches/')
+    fetch('https://auncrm.pythonanywhere.com/clients/dispatches/')
       .then(res => res.json())
       .then(res => {
         const sorted = res.sort((a, b) => new Date(b.date) - new Date(a.date))
