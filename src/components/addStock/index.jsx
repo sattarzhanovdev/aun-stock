@@ -16,7 +16,6 @@ const emptyRow = {
 const AddStock = ({ setActive }) => {
   const [rows, setRows] = React.useState([emptyRow])
   const [categories, setCategories] = React.useState([])
-  const [branches, setBranches] = React.useState([])
 
   const BRANCH_URLS = {
     'Сокулук': 'https://auncrm.pythonanywhere.com',
@@ -39,21 +38,10 @@ const AddStock = ({ setActive }) => {
     )
   }
 
-  const toggleBranch = (branchName) => {
-    setBranches(prev =>
-      prev.includes(branchName)
-        ? prev.filter(b => b !== branchName)
-        : [...prev, branchName]
-    )
-  }
-
   const addRow = () => setRows(prev => [...prev, emptyRow])
 
   const handleSave = async () => {
-    if (branches.length === 0) {
-      alert('Выберите хотя бы один филиал')
-      return
-    }
+    const url = BRANCH_URLS['Беловодское']
 
     const payload = rows.map(item => ({
       name: item.name,
@@ -66,50 +54,37 @@ const AddStock = ({ setActive }) => {
       category_id: +item.category || null
     }))
 
-    let success = true
+    try {
+      const existingRes = await fetch(`${url}/clients/stocks/`)
+      const existingData = await existingRes.json()
 
-    for (const branch of branches) {
-      const url = BRANCH_URLS[branch]
-      if (!url) continue
+      for (const item of payload) {
+        const alreadyExists = existingData.some(existing =>
+          existing.code?.split(',').map(c => c.trim()).some(c => item.code.includes(c))
+        )
 
-      try {
-        // Загружаем существующие товары
-        const existingRes = await fetch(`${url}/clients/stocks/`)
-        const existingData = await existingRes.json()
+        if (!alreadyExists) {
+          const res = await fetch(`${url}/clients/stocks/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify([item])
+          })
 
-        for (const item of payload) {
-          const alreadyExists = existingData.some(existing =>
-            existing.code?.split(',').map(c => c.trim()).some(c => item.code.includes(c))
-          )
-
-          if (!alreadyExists) {
-            const res = await fetch(`${url}/clients/stocks/`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify([item])
-            })
-
-            if (!(res.status === 201 || res.status === 200)) {
-              alert(`Ошибка при добавлении товара в "${branch}"`)
-              success = false
-            }
+          if (!(res.status === 201 || res.status === 200)) {
+            alert(`Ошибка при добавлении товара в "Беловодское"`)
           }
         }
-      } catch (err) {
-        console.error(`Ошибка при сохранении товара в "${branch}":`, err)
-        success = false
       }
-    }
 
-    if (success) {
       alert('Товары успешно добавлены (без дублирования)')
       setActive(false)
       window.location.reload()
+    } catch (err) {
+      console.error(`Ошибка при сохранении товара в "Беловодское":`, err)
     }
   }
 
   React.useEffect(() => {
-    // по умолчанию загрузим категории из первого филиала
     fetch(`https://auncrm.pythonanywhere.com/clients/categories/`)
       .then(res => res.json())
       .then(data => setCategories(data))
@@ -120,24 +95,6 @@ const AddStock = ({ setActive }) => {
     <div className={c.addExpense}>
       <div className={c.addExpense__header}>
         <h2>Добавление товара</h2>
-      </div>
-
-      {/* 🆕 Блок выбора филиалов */}
-      <div className={c.branchCheckboxes}>
-        <h4>Филиалы</h4>
-        <div className={c.checks}>
-          {['Сокулук', 'Беловодское'].map(branch => (
-            <label key={branch}>
-              <input
-                type="checkbox"
-                value={branch}
-                checked={branches.includes(branch)}
-                onChange={() => toggleBranch(branch)}
-              />
-              {branch}
-            </label>
-          ))}
-        </div>
       </div>
 
       {rows.map((row, idx) => (

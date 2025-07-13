@@ -31,7 +31,6 @@ const Kassa = () => {
     API.getCategories().then(res => setCategories(res.data))
   }, [])
 
-  // База товаров всегда из Беловодского
   useEffect(() => {
     fetch(`${BRANCH_URLS['Беловодское']}/clients/stocks/`)
       .then(res => res.json())
@@ -126,6 +125,12 @@ const Kassa = () => {
   const handleSendToStock = async () => {
     if (!cart.length) return alert('Корзина пуста')
 
+    for (const item of cart) {
+      if (!item.quantity || item.quantity < item.qty) {
+        return alert(`Недостаточно товара: ${item.name}\nОстаток: ${item.quantity}, требуется: ${item.qty}`)
+      }
+    }
+
     const dispatchUrl = `${BRANCH_URLS['Сокулук']}/clients/dispatches/`
 
     const items = cart.map(i => ({
@@ -155,7 +160,6 @@ const Kassa = () => {
         throw new Error('Ошибка API')
       }
 
-      // уменьшаем остатки на складе Сокулук по id
       for (const item of cart) {
         try {
           const updateUrl = `${BRANCH_URLS['Беловодское']}/clients/stocks/${item.id}/`
