@@ -10,7 +10,8 @@ const sendBtn = { background: '#3498db', color: '#fff', padding: '10px 20px', fo
 
 const BRANCH_URLS = {
   'Сокулук': 'https://auncrm.pythonanywhere.com',
-  'Беловодское': 'https://auncrm2.pythonanywhere.com',
+  'Склад': 'https://auncrm2.pythonanywhere.com',
+  'Беловодское': 'https://aunbelovodskiy.pythonanywhere.com',
 }
 
 const Kassa = () => {
@@ -32,7 +33,7 @@ const Kassa = () => {
   }, [])
 
   useEffect(() => {
-    fetch(`${BRANCH_URLS['Беловодское']}/clients/stocks/`)
+    fetch(`${BRANCH_URLS['Склад']}/clients/stocks/`)
       .then(res => res.json())
       .then(r => {
         const enriched = r.map(g => ({
@@ -133,9 +134,36 @@ const Kassa = () => {
 
     try {
       for (const item of cart) {
-        const createUrl = `${BRANCH_URLS[branch]}/clients/stocks/`
+        const fromUrl = `${BRANCH_URLS['Склад']}/clients/stocks/${item.id}/`
 
-        const newPayload = {
+        const updatedQty = item.quantity - item.qty
+
+        if (updatedQty > 0) {
+          // обновляем количество на складе
+          await fetch(fromUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              code: item.code,
+              name: item.name,
+              quantity: updatedQty,
+              price: item.price,
+              price_seller: item.price_seller,
+              category_id: categories.find(val => val.name === item.category)?.id || null,
+              unit: item.unit,
+              fixed_quantity: item.fixed_quantity
+            })
+          })
+        } else {
+          // удаляем товар со склада
+          await fetch(fromUrl, {
+            method: 'DELETE'
+          })
+        }
+
+        // создаём на новом складе
+        const toUrl = `${BRANCH_URLS[branch]}/clients/stocks/`
+        const payload = {
           code: item.code.split(',').map(c => c.trim()),
           name: item.name,
           quantity: item.qty,
@@ -146,10 +174,10 @@ const Kassa = () => {
           fixed_quantity: item.qty
         }
 
-        const res = await fetch(createUrl, {
+        const res = await fetch(toUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify([newPayload]),
+          body: JSON.stringify([payload]),
         })
 
         if (!res.ok) {
@@ -158,11 +186,11 @@ const Kassa = () => {
         }
       }
 
-      alert('Товары успешно добавлены на выбранный склад 📦')
+      alert('Товары успешно перемещены 📦')
       setCart([])
     } catch (e) {
       console.error(e)
-      alert('Ошибка при добавлении товара')
+      alert('Ошибка при перемещении товара')
     }
   }
 
@@ -173,8 +201,9 @@ const Kassa = () => {
       <div style={{ marginBottom: 20 }}>
         <label>Филиал:&nbsp;</label>
         <select value={branch} onChange={e => setBranch(e.target.value)} style={{ padding: 6 }}>
-          <option value="Сокулук">Сокулук</option>
-          <option value="Беловодское">Беловодское</option>
+          {Object.keys(BRANCH_URLS).filter(b => b !== 'Склад').map(b => (
+            <option key={b} value={b}>{b}</option>
+          ))}
         </select>
       </div>
 
