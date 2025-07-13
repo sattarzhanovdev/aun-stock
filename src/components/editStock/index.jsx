@@ -16,26 +16,14 @@ const EditStock = ({ setActive }) => {
     initial.fixed_quantity ?? initial.quantity ?? 0
   )
   const [cats, setCats] = useState([])
-  const [branches, setBranches] = useState(['Сокулук']) // по умолчанию выбран один
 
-  const BRANCH_URLS = {
-    'Сокулук': 'https://auncrm.pythonanywhere.com',
-    'Беловодское': 'https://auncrm2.pythonanywhere.com',
-  }
-
-  const toggleBranch = (branch) => {
-    setBranches((prev) =>
-      prev.includes(branch)
-        ? prev.filter((b) => b !== branch)
-        : [...prev, branch]
-    )
-  }
+  const BASE_URL = 'https://auncrm2.pythonanywhere.com' // Только Беловодское
 
   const handleSave = async () => {
     const codeArray = code.split(',').map(c => c.trim()).filter(Boolean)
 
     const payload = {
-      code: codeArray,
+      code: code,
       name,
       quantity: +quantity || 0,
       price: +price || 0,
@@ -45,81 +33,57 @@ const EditStock = ({ setActive }) => {
       fixed_quantity: +fixedQuantity || 0
     }
 
-    let success = true
+    try {
+      const putRes = await fetch(`${BASE_URL}/clients/stocks/${initial.id}/`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
 
-    for (const branch of branches) {
-      const url = BRANCH_URLS[branch]
-      if (!url) continue
-
-      try {
-        const putRes = await fetch(`${url}/clients/stocks/${initial.id}/`, {
-          method: 'PUT',
+      if (putRes.status === 404) {
+        const postRes = await fetch(`${BASE_URL}/clients/stocks/`, {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify([payload])
         })
 
-        if (putRes.status === 404) {
-          // Если нет — создаём
-          const postRes = await fetch(`${url}/clients/stocks/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify([payload])
-          })
-
-          if (!postRes.ok) {
-            alert(`Ошибка при создании товара в "${branch}"`)
-            success = false
-          }
-        } else if (!putRes.ok) {
-          alert(`Ошибка при обновлении товара в "${branch}"`)
-          success = false
+        if (!postRes.ok) {
+          alert(`Ошибка при создании товара`)
         }
-      } catch (err) {
-        console.error(`Ошибка в "${branch}":`, err)
-        success = false
+      } else if (!putRes.ok) {
+        alert(`Ошибка при обновлении товара`)
+      } else {
+        alert('Товар успешно сохранён')
+        setActive(false)
+        window.location.reload()
       }
-    }
-
-    if (success) {
-      alert('Товар успешно сохранён во всех выбранных филиалах')
-      setActive(false)
-      window.location.reload()
+    } catch (err) {
+      console.error('Ошибка:', err)
     }
   }
 
   const handleDelete = async () => {
-    if (!window.confirm('Вы уверены, что хотите удалить этот товар?')) return
+    if (!window.confirm('Удалить товар?')) return
 
-    let success = true
+    try {
+      const res = await fetch(`${BASE_URL}/clients/stocks/${initial.id}/`, {
+        method: 'DELETE'
+      })
 
-    for (const branch of branches) {
-      const url = BRANCH_URLS[branch]
-      if (!url) continue
-
-      try {
-        const res = await fetch(`${url}/clients/stocks/${initial.id}/`, {
-          method: 'DELETE'
-        })
-
-        if (res.status !== 204) {
-          alert(`Ошибка при удалении в "${branch}"`)
-          success = false
-        }
-      } catch (err) {
-        console.error(`Ошибка при удалении в "${branch}":`, err)
-        success = false
+      if (res.status === 204) {
+        alert('Товар удалён')
+        setActive(false)
+        window.location.reload()
+      } else {
+        alert('Ошибка при удалении товара')
       }
-    }
-
-    if (success) {
-      alert('Товар удалён во всех филиалах')
-      setActive(false)
-      window.location.reload()
+    } catch (err) {
+      console.error('Ошибка удаления:', err)
     }
   }
 
   useEffect(() => {
-    fetch(`https://auncrm.pythonanywhere.com/clients/categories/`)
+    fetch(`${BASE_URL}/clients/categories/`)
       .then(res => res.json())
       .then(data => setCats(data))
       .catch(e => console.error('Не удалось загрузить категории', e))
@@ -129,23 +93,6 @@ const EditStock = ({ setActive }) => {
     <div className={c.addExpense}>
       <div className={c.addExpense__header}>
         <h2>Изменение товара</h2>
-      </div>
-
-      {/* чекбоксы филиалов */}
-      <div className={c.branchCheckboxes}>
-        <h4>Филиалы</h4>
-        <div className={c.checks}>
-          {['Сокулук', 'Беловодское'].map(branch => (
-            <label key={branch}>
-              <input
-                type="checkbox"
-                checked={branches.includes(branch)}
-                onChange={() => toggleBranch(branch)}
-              />
-              {branch}
-            </label>
-          ))}
-        </div>
       </div>
 
       <div className={c.addExpense__form}>
@@ -178,9 +125,7 @@ const EditStock = ({ setActive }) => {
           >
             <option value="">‒ выберите ‒</option>
             {cats.map(cat => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
             ))}
           </select>
         </div>

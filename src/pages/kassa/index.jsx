@@ -132,14 +132,15 @@ const Kassa = () => {
       }
     }
 
+    const dispatchItems = []
+
     try {
       for (const item of cart) {
         const fromUrl = `${BRANCH_URLS['Склад']}/clients/stocks/${item.id}/`
-
         const updatedQty = item.quantity - item.qty
 
+        // Удалить или обновить товар на старом складе
         if (updatedQty > 0) {
-          // обновляем количество на складе
           await fetch(fromUrl, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -155,15 +156,12 @@ const Kassa = () => {
             })
           })
         } else {
-          // удаляем товар со склада
-          await fetch(fromUrl, {
-            method: 'DELETE'
-          })
+          await fetch(fromUrl, { method: 'DELETE' })
         }
 
-        // создаём на новом складе
+        // Добавить на новый склад
         const toUrl = `${BRANCH_URLS[branch]}/clients/stocks/`
-        const payload = {
+        const stockPayload = {
           code: item.code.split(',').map(c => c.trim()),
           name: item.name,
           quantity: item.qty,
@@ -177,13 +175,38 @@ const Kassa = () => {
         const res = await fetch(toUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify([payload]),
+          body: JSON.stringify([stockPayload]),
         })
 
         if (!res.ok) {
           console.error(await res.json())
           alert(`Ошибка при добавлении товара: ${item.name}`)
+          return
         }
+
+        // Новый payload для dispatches
+        dispatchItems.push({
+          code: item.code,
+          name: item.name,
+          quantity: item.qty,
+          price: item.price,
+          total: item.qty * item.price
+        })
+      }
+
+      const dispatchRes = await fetch(`${BRANCH_URLS['Сокулук']}/clients/dispatches/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: dispatchItems,
+          recipient: branch
+        })
+      })
+
+      if (!dispatchRes.ok) {
+        console.error(await dispatchRes.json())
+        alert('Ошибка при создании истории отправки')
+        return
       }
 
       alert('Товары успешно перемещены 📦')
