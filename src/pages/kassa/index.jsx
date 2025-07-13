@@ -131,71 +131,44 @@ const Kassa = () => {
       }
     }
 
-    const dispatchUrl = `${BRANCH_URLS['Сокулук']}/clients/dispatches/`
-
-    const items = cart.map(i => ({
-      code: i.code.split(',')[0],
-      name: i.name,
-      quantity: i.qty,
-      price: +i.price,
-      total: +(i.qty * +i.price).toFixed(2),
-    }))
-
-    const payload = {
-      recipient: branch,
-      comment: `Отправка из интерфейса Kassa (Сокулук → ${branch})`,
-      items,
-    }
-
     try {
-      const res = await fetch(dispatchUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      if (!res.ok) {
-        const err = await res.json()
-        console.error(err)
-        throw new Error('Ошибка API')
-      }
-
       for (const item of cart) {
-        try {
-          const updateUrl = `${BRANCH_URLS['Беловодское']}/clients/stocks/${item.id}/`
+        const createUrl = `${BRANCH_URLS[branch]}/clients/stocks/`
 
-          const updatedPayload = {
-            code: item.code,
-            name: item.name,
-            quantity: item.quantity - item.qty,
-            price: item.price,
-            price_seller: item.price_seller || 0,
-            category_id: categories && categories.find(val => val.name === item.category)?.id || null,
-            unit: item.unit,
-            fixed_quantity: item.fixed_quantity || item.quantity
-          }
+        const newPayload = {
+          code: item.code.split(',').map(c => c.trim()),
+          name: item.name,
+          quantity: item.qty,
+          price: item.price,
+          price_seller: item.price_seller || 0,
+          category_id: categories.find(val => val.name === item.category)?.id || null,
+          unit: item.unit,
+          fixed_quantity: item.qty
+        }
 
-          await fetch(updateUrl, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updatedPayload),
-          })
-        } catch (err) {
-          console.warn('Ошибка при уменьшении остатка по ID:', err)
+        const res = await fetch(createUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify([newPayload]),
+        })
+
+        if (!res.ok) {
+          console.error(await res.json())
+          alert(`Ошибка при добавлении товара: ${item.name}`)
         }
       }
 
-      alert('Успешно отправлено 📦 и остатки уменьшены')
+      alert('Товары успешно добавлены на выбранный склад 📦')
       setCart([])
     } catch (e) {
       console.error(e)
-      alert('Ошибка при отправке в склад')
+      alert('Ошибка при добавлении товара')
     }
   }
 
   return (
     <div style={{ padding: 24, maxWidth: 900, margin: '0 auto', fontFamily: 'sans-serif' }}>
-      <h2>📦 Отправка на склад</h2>
+      <h2>📦 Добавление на склад</h2>
 
       <div style={{ marginBottom: 20 }}>
         <label>Филиал:&nbsp;</label>
@@ -268,7 +241,7 @@ const Kassa = () => {
       <h3 style={{ textAlign: 'right' }}>Итого: {total.toFixed(2)} сом</h3>
 
       <div style={{ textAlign: 'right' }}>
-        <button onClick={handleSendToStock} style={sendBtn}>📤 Отправить в склад</button>
+        <button onClick={handleSendToStock} style={sendBtn}>📤 Добавить на склад</button>
       </div>
     </div>
   )

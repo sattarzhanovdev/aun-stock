@@ -64,7 +64,7 @@ const StockTable = () => {
 
   return (
     <div className={c.workers}>
-      <div style={{ marginBottom: 20 }}>
+      {/* <div style={{ marginBottom: 20 }}>
         <label>Филиал:&nbsp;</label>
         <select
           value={selectedBranch}
@@ -74,7 +74,7 @@ const StockTable = () => {
           <option value="stock" selected>Склад</option>
           <option value="sokuluk">Сокулук</option>
         </select>
-      </div>
+      </div> */}
 
       <div className={c.table}>
         <select
