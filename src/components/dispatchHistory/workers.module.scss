@@ -1,3 +1,26 @@
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  .popup__content,
+  .popup__content * {
+    visibility: visible !important;
+  }
+
+  .popup__content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 20px;
+  }
+
+  button {
+    display: none !important;
+  }
+}
+
 .workers{
   display: flex;
   align-items: flex-start;
@@ -194,7 +217,12 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  flex-direction: column;
   z-index: 10;
+  button{
+    width: 200px;
+    margin-top: 20px;
+  }
 }
 
 .popup__content {

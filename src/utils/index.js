@@ -13,16 +13,6 @@ export const NavList = [
     route: '/'
   },
   {
-    id: 2,
-    title: 'Финансы',
-    route: '/finances'
-  },
-  {
-    id: 3,
-    title: 'Расходы',
-    route: '/expenses'
-  },
-  {
     id: 4,
     title: 'Склад',
     route: '/stock'
@@ -51,7 +41,22 @@ export const NavList = [
     id: 9, 
     title: 'Отчет по кассе',
     route: '/cashReport'
-  }
+  },
+  {
+    id: 10, 
+    title: 'Сокулук',
+    route: 'https://aun-crm.netlify.app'
+  },
+  {
+    id: 11, 
+    title: 'Беловодское',
+    route: 'https://aun-belovodskiy.netlify.app'
+  },
+  {
+    id: 12, 
+    title: 'Кара Балта',
+    route: '/karabalta'
+  },
 ]
 
 
@@ -148,5 +153,10 @@ export const PUBLIC_ROUTES = [
     id: 14,
     page: <CashReport />,
     route: '/cashReport'
+  }, 
+  {
+    id: 15,
+    page: <CashReport />,
+    route: '/sokuluk'
   }, 
 ]
