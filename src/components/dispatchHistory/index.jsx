@@ -73,7 +73,7 @@ const DispatchHistory = () => {
             <p style={{ textAlign: 'right' }}>{new Date(selected.date).toLocaleDateString('ru-RU')} г</p>
 
             <p><strong>Кому:</strong> {selected.recipient}</p>
-            <p><strong>От кого:</strong> Склад AU</p>
+            <p><strong>От кого:</strong> Склад AUN</p>
 
             <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }} border={1}>
               <thead>
