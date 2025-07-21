@@ -1,25 +1,76 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react';
 
 const BRANCH_URLS = {
-  'Сокулук': 'https://auncrm.pythonanywhere.com/clients/cash-sessions',
-  'Беловодское': 'https://auncrm2.pythonanywhere.com/clients/cash-sessions',
-  // добавь другие при необходимости
-}
+  'Сокулук': 'https://auncrm.pythonanywhere.com',
+  'Беловодское': 'https://auncrm2.pythonanywhere.com',
+  'Кара-Балта': 'https://aunkarabalta.pythonanywhere.com'
+};
+
+const th = { border: '1px solid #ccc', padding: 10, textAlign: 'left', background: '#f0f0f0' };
+const td = { border: '1px solid #eee', padding: 10 };
+
+const modalOverlay = {
+  position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+  backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+  zIndex: 9999
+};
+
+const modalWindow = {
+  backgroundColor: '#fff', borderRadius: 8, padding: 24, maxWidth: '90%', maxHeight: '90%',
+  overflowY: 'auto', boxShadow: '0 0 20px rgba(0,0,0,0.3)'
+};
+
+const closeBtn = {
+  position: 'absolute', top: 10, right: 15, background: 'transparent', border: 'none', fontSize: 24, cursor: 'pointer'
+};
 
 const CashReport = () => {
-  const [branch, setBranch] = useState('Сокулук')
-  const [sessions, setSessions] = useState([])
+  const [branch, setBranch] = useState('Сокулук');
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedSales, setSelectedSales] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedSession, setSelectedSession] = useState(null);
 
   useEffect(() => {
-    const url = BRANCH_URLS[branch]
-    fetch(url)
-      .then(res => res.json())
-      .then(data => setSessions(data))
-      .catch(err => console.error('Ошибка загрузки смен:', err))
-  }, [branch])
+    const fetchSessions = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${BRANCH_URLS[branch]}/clients/cash-sessions`);
+        const data = await res.json();
+        const sorted = [...data].sort((a, b) => new Date(b.opened_at) - new Date(a.opened_at));
+        setSessions(sorted);
+      } catch (err) {
+        console.error('Ошибка загрузки смен:', err);
+        setSessions([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSessions();
+  }, [branch]);
+
+  const handleSessionClick = async (session) => {
+    setSelectedSales([]);
+    setSelectedSession(session);
+    setShowModal(true);
+
+    try {
+      const from = new Date(session.opened_at).toISOString();
+      const to = session.closed_at ? new Date(session.closed_at).toISOString() : new Date().toISOString();
+
+      const res = await fetch(`${BRANCH_URLS[branch]}/clients/sales/?from=${from}&to=${to}`);
+      const data = await res.json();
+      setSelectedSales(data);
+    } catch (err) {
+      console.error('Ошибка загрузки продаж:', err);
+      setSelectedSales([]);
+    }
+  };
 
   return (
-    <div style={{ padding: 24, maxWidth: 1000, margin: '0 auto', fontFamily: 'sans-serif' }}>
+    <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto', fontFamily: 'sans-serif' }}>
       <h2>🧾 Кассовые смены ({branch})</h2>
 
       <div style={{ margin: '12px 0' }}>
@@ -32,7 +83,7 @@ const CashReport = () => {
       </div>
 
       <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 20 }}>
-        <thead style={{ background: '#f0f0f0' }}>
+        <thead>
           <tr>
             <th style={th}>Открытие</th>
             <th style={th}>Закрытие</th>
@@ -42,25 +93,65 @@ const CashReport = () => {
           </tr>
         </thead>
         <tbody>
-          {sessions.map((s, i) => (
-            <tr key={i}>
-              <td style={td}>{new Date(s.opened_at).toLocaleString('ru-RU')}</td>
-              <td style={td}>{s.closed_at ? new Date(s.closed_at).toLocaleString('ru-RU') : '—'}</td>
-              <td style={td}>{(+s.opening_sum).toFixed(2)} сом</td>
-              <td style={td}>{s.closing_sum !== null ? (+s.closing_sum).toFixed(2) + ' сом' : '—'}</td>
-              <td style={td}>{s.closed_at ? 'Закрыта' : 'Открыта'}</td>
-            </tr>
-          ))}
-          {sessions.length === 0 && (
+          {loading ? (
+            <tr><td colSpan={5} style={{ padding: 20, textAlign: 'center' }}>Загрузка...</td></tr>
+          ) : sessions.length > 0 ? (
+            sessions.map((s, i) => (
+              <tr key={i} onClick={() => handleSessionClick(s)} style={{ cursor: 'pointer' }}>
+                <td style={td}>{new Date(s.opened_at).toLocaleString('ru-RU')}</td>
+                <td style={td}>{s.closed_at ? new Date(s.closed_at).toLocaleString('ru-RU') : '—'}</td>
+                <td style={td}>{(+s.opening_sum).toFixed(2)} сом</td>
+                <td style={td}>{s.closing_sum !== null ? (+s.closing_sum).toFixed(2) + ' сом' : '—'}</td>
+                <td style={td}>{s.closed_at ? 'Закрыта' : 'Открыта'}</td>
+              </tr>
+            ))
+          ) : (
             <tr><td colSpan={5} style={{ padding: 20, textAlign: 'center', color: '#999' }}>Нет данных</td></tr>
           )}
         </tbody>
       </table>
+
+      {/* Модальное окно */}
+      {showModal && (
+        <div style={modalOverlay} onClick={() => setShowModal(false)}>
+          <div style={modalWindow} onClick={(e) => e.stopPropagation()}>
+            <button style={closeBtn} onClick={() => setShowModal(false)}>×</button>
+            <h3>Продажи за смену:</h3>
+            <p><b>Смена:</b> {new Date(selectedSession.opened_at).toLocaleString('ru-RU')}</p>
+            <p><b>Закрытие:</b> {selectedSession.closed_at ? new Date(selectedSession.closed_at).toLocaleString('ru-RU') : '—'}</p>
+
+            {selectedSales.length === 0 ? (
+              <p style={{ color: '#999' }}>Нет продаж</p>
+            ) : selectedSales.map((sale, i) => (
+              <div key={i} style={{ marginBottom: 16 }}>
+                <p><b>Продажа №{sale.id}</b> — {new Date(sale.date).toLocaleString('ru-RU')}</p>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={th}>Товар</th>
+                      <th style={th}>Цена</th>
+                      <th style={th}>Кол-во</th>
+                      <th style={th}>Сумма</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sale.items.map((item, j) => (
+                      <tr key={j}>
+                        <td style={td}>{item.name}</td>
+                        <td style={td}>{(+item.price).toFixed(2)} сом</td>
+                        <td style={td}>{item.quantity}</td>
+                        <td style={td}>{(item.price * item.quantity).toFixed(2)} сом</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
-  )
-}
+  );
+};
 
-const th = { border: '1px solid #ccc', padding: 10, textAlign: 'left' }
-const td = { border: '1px solid #eee', padding: 10 }
-
-export default CashReport
+export default CashReport;

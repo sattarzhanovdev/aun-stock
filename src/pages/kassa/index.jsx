@@ -12,6 +12,7 @@ const BRANCH_URLS = {
   'Сокулук': 'https://auncrm.pythonanywhere.com',
   'Склад': 'https://auncrm2.pythonanywhere.com',
   'Беловодское': 'https://aunbelovodskiy.pythonanywhere.com',
+  'Кара-Балта': 'https://aunkarabalta.pythonanywhere.com'
 }
 
 const Kassa = () => {
