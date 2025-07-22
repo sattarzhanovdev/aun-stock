@@ -1,4 +1,5 @@
 import React, { useRef } from 'react'
+import html2pdf from 'html2pdf.js' // добавлен импорт
 import c from './workers.module.scss'
 
 const DispatchHistory = () => {
@@ -35,6 +36,18 @@ const DispatchHistory = () => {
     printWindow.focus()
     printWindow.print()
     printWindow.close()
+  }
+
+  const handleDownloadPDF = () => {
+    const element = printRef.current
+    const opt = {
+      margin:       0.5,
+      filename:     `накладная-${selected.recipient}-${new Date(selected.date).toLocaleDateString('ru-RU')}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2 },
+      jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+    }
+    html2pdf().set(opt).from(element).save()
   }
 
   return (
@@ -124,8 +137,12 @@ const DispatchHistory = () => {
               </div>
             </div>
           </div>
-          <button onClick={() => window.print()}>🖨️ Распечатать</button>
-          <button onClick={() => setSelected(null)}>Закрыть</button>
+
+          <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+            <button onClick={handlePrint}>🖨️ Распечатать</button>
+            <button onClick={handleDownloadPDF}>💾 Сохранить PDF</button>
+            <button onClick={() => setSelected(null)}>Закрыть</button>
+          </div>
         </div>
       )}
     </div>
