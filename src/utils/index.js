@@ -55,7 +55,7 @@ export const NavList = [
   {
     id: 12, 
     title: 'Кара Балта',
-    route: '/karabalta'
+    route: 'https://aun-karabalta.netlify.app'
   },
 ]
 

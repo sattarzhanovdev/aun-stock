@@ -17,7 +17,7 @@ const modalOverlay = {
 
 const modalWindow = {
   backgroundColor: '#fff', borderRadius: 8, padding: 24, maxWidth: '90%', maxHeight: '90%',
-  overflowY: 'auto', boxShadow: '0 0 20px rgba(0,0,0,0.3)'
+  overflowY: 'auto', boxShadow: '0 0 20px rgba(0,0,0,0.3)', position: 'relative'
 };
 
 const closeBtn = {
@@ -62,11 +62,25 @@ const CashReport = () => {
 
       const res = await fetch(`${BRANCH_URLS[branch]}/clients/sales/?from=${from}&to=${to}`);
       const data = await res.json();
-      setSelectedSales(data);
+
+      // 🔍 фильтруем вручную по дате, если API не фильтрует точно
+      const filtered = data.filter(sale => {
+        const saleDate = new Date(sale.date);
+        return saleDate >= new Date(session.opened_at) && saleDate <= new Date(session.closed_at);
+      });
+
+      const sorted = filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+      setSelectedSales(sorted);
     } catch (err) {
       console.error('Ошибка загрузки продаж:', err);
       setSelectedSales([]);
     }
+  };
+
+  const getTotalSum = () => {
+    return selectedSales.reduce((total, sale) => {
+      return total + sale.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    }, 0).toFixed(2);
   };
 
   return (
@@ -147,6 +161,13 @@ const CashReport = () => {
                 </table>
               </div>
             ))}
+
+            {selectedSales.length > 0 && (
+              <div style={{ marginTop: 20 }}>
+                <hr />
+                <p><b>Итого за смену:</b> {getTotalSum()} сом</p>
+              </div>
+            )}
           </div>
         </div>
       )}
