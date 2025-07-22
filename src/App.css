@@ -9,3 +9,9 @@ body {
 button {
   cursor: pointer;
 }/*# sourceMappingURL=App.css.map */
+
+@media print {
+  .pagebreak {
+    page-break-before: always;
+  }
+}

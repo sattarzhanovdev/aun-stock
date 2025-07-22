@@ -29,7 +29,7 @@ const DispatchHistory = () => {
     const printWindow = window.open('', '', 'height=600,width=800')
     printWindow.document.write('<html><head><title>Накладная</title>')
     printWindow.document.write('<style>table { width: 100%; border-collapse: collapse } th, td { border: 1px solid #000; padding: 5px; }</style>')
-    printWindow.document.write('</head><body>')
+    printWindow.document.write('</head><body class="pagebreak">')
     printWindow.document.write(printContents)
     printWindow.document.write('</body></html>')
     printWindow.document.close()
@@ -40,13 +40,29 @@ const DispatchHistory = () => {
 
   const handleDownloadPDF = () => {
     const element = printRef.current
+
+    // Временно убираем ограничения вручную
+    element.style.maxHeight = 'none'
+    element.style.overflow = 'visible'
+    element.style.height = 'auto'
+
     const opt = {
-      margin:       0.5,
-      filename:     `накладная-${selected.recipient}-${new Date(selected.date).toLocaleDateString('ru-RU')}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+      margin: 0.5,
+      filename: `накладная-${selected.recipient}-${new Date(selected.date).toLocaleDateString('ru-RU')}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false
+      },
+      jsPDF: {
+        unit: 'mm',
+        format: 'a4',
+        orientation: 'portrait'
+      },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     }
+
     html2pdf().set(opt).from(element).save()
   }
 
