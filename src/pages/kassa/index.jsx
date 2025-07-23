@@ -23,6 +23,7 @@ const Kassa = () => {
   const [suggest, setSuggest] = useState([])
   const [highlight, setHighlight] = useState(-1)
   const [categories, setCategories] = useState([])
+  const [loading, setLoading] = useState(false) // ⬅️ loading popup
 
   const scanRef = useRef()
   const nameRef = useRef()
@@ -126,10 +127,13 @@ const Kassa = () => {
 
   const handleSendToStock = async () => {
     if (!cart.length) return alert('Корзина пуста')
+    setLoading(true)
 
     for (const item of cart) {
       if (!item.quantity || item.quantity < item.qty) {
-        return alert(`Недостаточно товара: ${item.name}\nОстаток: ${item.quantity}, требуется: ${item.qty}`)
+        alert(`Недостаточно товара: ${item.name}\nОстаток: ${item.quantity}, требуется: ${item.qty}`)
+        setLoading(false)
+        return
       }
     }
 
@@ -140,7 +144,6 @@ const Kassa = () => {
         const fromUrl = `${BRANCH_URLS['Склад']}/clients/stocks/${item.id}/`
         const updatedQty = item.quantity - item.qty
 
-        // Удалить или обновить товар на старом складе
         if (updatedQty > 0) {
           await fetch(fromUrl, {
             method: 'PUT',
@@ -160,7 +163,6 @@ const Kassa = () => {
           await fetch(fromUrl, { method: 'DELETE' })
         }
 
-        // Добавить на новый склад
         const toUrl = `${BRANCH_URLS[branch]}/clients/stocks/`
         const stockPayload = {
           code: item.code.split(',').map(c => c.trim()),
@@ -182,10 +184,10 @@ const Kassa = () => {
         if (!res.ok) {
           console.error(await res.json())
           alert(`Ошибка при добавлении товара: ${item.name}`)
+          setLoading(false)
           return
         }
 
-        // Новый payload для dispatches
         dispatchItems.push({
           code: item.code,
           name: item.name,
@@ -207,6 +209,7 @@ const Kassa = () => {
       if (!dispatchRes.ok) {
         console.error(await dispatchRes.json())
         alert('Ошибка при создании истории отправки')
+        setLoading(false)
         return
       }
 
@@ -215,6 +218,8 @@ const Kassa = () => {
     } catch (e) {
       console.error(e)
       alert('Ошибка при перемещении товара')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -296,8 +301,35 @@ const Kassa = () => {
       <div style={{ textAlign: 'right' }}>
         <button onClick={handleSendToStock} style={sendBtn}>📤 Добавить на склад</button>
       </div>
+
+      {loading && <PopupLoader />}
     </div>
   )
 }
+
+const PopupLoader = () => (
+  <div style={{
+    position: 'fixed',
+    top: 0, left: 0,
+    width: '100%',
+    height: '100%',
+    background: 'rgba(0,0,0,0.3)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999
+  }}>
+    <div style={{
+      background: '#fff',
+      padding: '30px 40px',
+      borderRadius: '10px',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+      fontSize: 18,
+      fontWeight: 500
+    }}>
+      ⏳ Перемещаем товары...
+    </div>
+  </div>
+)
 
 export default Kassa

@@ -16,6 +16,7 @@ const emptyRow = {
 const AddStock = ({ setActive }) => {
   const [rows, setRows] = React.useState([emptyRow])
   const [categories, setCategories] = React.useState([])
+  const [loading, setLoading] = React.useState(false)
 
   const BRANCH_URLS = {
     'Сокулук': 'https://auncrm.pythonanywhere.com',
@@ -41,6 +42,7 @@ const AddStock = ({ setActive }) => {
   const addRow = () => setRows(prev => [...prev, emptyRow])
 
   const handleSave = async () => {
+    setLoading(true)
     const url = BRANCH_URLS['Беловодское']
 
     const payload = rows.map(item => ({
@@ -81,6 +83,9 @@ const AddStock = ({ setActive }) => {
       window.location.reload()
     } catch (err) {
       console.error(`Ошибка при сохранении товара в "Беловодское":`, err)
+      alert('Произошла ошибка при сохранении')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -168,18 +173,48 @@ const AddStock = ({ setActive }) => {
         </div>
       ))}
 
-      <button onClick={addRow}>
+      <button onClick={addRow} disabled={loading}>
         <img src={Icons.plus} alt="" /> Добавить строку
       </button>
 
       <div className={c.res}>
-        <button onClick={() => setActive(false)}>Отменить</button>
-        <button onClick={handleSave}>
-          <img src={Icons.addGreen} alt="" /> Сохранить
+        <button onClick={() => setActive(false)} disabled={loading}>Отменить</button>
+        <button onClick={handleSave} disabled={loading}>
+          <img src={Icons.addGreen} alt="" /> {loading ? 'Сохраняем...' : 'Сохранить'}
         </button>
       </div>
+
+      {loading && <PopupLoader />}
     </div>
   )
 }
+
+// 👇 Встроенный компонент модального окна загрузки
+const PopupLoader = () => (
+  <div style={{
+    position: 'fixed',
+    top: 0, left: 0,
+    width: '100%',
+    height: '100%',
+    background: 'rgba(0,0,0,0.3)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999
+  }}>
+    <div style={{
+      background: '#fff',
+      padding: '30px 40px',
+      borderRadius: '10px',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+      fontSize: 18,
+      fontWeight: 500
+    }}>
+      ⏳ Сохраняем товары...
+      <br />
+      Прошу не нажимать кнопки!
+    </div>
+  </div>
+)
 
 export default AddStock

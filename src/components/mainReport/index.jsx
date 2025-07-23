@@ -21,6 +21,10 @@ const MainReport = () => {
     {
       name: 'Беловодское',
       url: 'https://auncrm2.pythonanywhere.com'
+    },
+    {
+      name: 'Кара-Балта',
+      url: 'https://aunkarabalta.pythonanywhere.com'
     }
   ]
 

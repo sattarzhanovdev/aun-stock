@@ -10,21 +10,20 @@ const Return = () => {
   const [items, setItems] = useState([])
   const [cart, setCart] = useState([])
   const [reason, setReason] = useState('customer')
-  const [branch, setBranch] = useState('Сокулук') // ⬅️ филиал
-
+  const [branch, setBranch] = useState('Сокулук')
   const [searchName, setSearchName] = useState('')
   const [suggestions, setSuggestions] = useState([])
+  const [loading, setLoading] = useState(false)
 
   const inputRef = useRef()
   const navigate = useNavigate()
+  const total = cart.reduce((s, i) => s + i.qty * +i.price, 0)
 
-  const total = cart.reduce((s,i)=> s + i.qty * +i.price ,0)
-
-  useEffect(()=>{
+  useEffect(() => {
     API.getSales()
       .then(r => setItems(r.data))
-      .catch(e => console.error('Ошибка загрузки позиций продаж',e))
-  },[])
+      .catch(e => console.error('Ошибка загрузки позиций продаж', e))
+  }, [])
 
   const allSaleItems = items.flatMap(sale =>
     sale.items.map(si => ({ ...si, sale_item: si.id }))
@@ -36,7 +35,6 @@ const Return = () => {
     if (!code) return
 
     const item = allSaleItems.find(i => i.code === code)
-
     if (!item) {
       alert('Позиция продажи с таким кодом не найдена')
       e.target.value = ''
@@ -81,41 +79,64 @@ const Return = () => {
     })
   }
 
-  const changeQty = (idx,d)=>
-    setCart(p=>p.map((r,i)=> i===idx
-      ? { ...r, qty: Math.max(1, Math.min(r.qty+d, r.quantity)) }
+  const changeQty = (idx, d) =>
+    setCart(p => p.map((r, i) => i === idx
+      ? { ...r, qty: Math.max(1, Math.min(r.qty + d, r.quantity)) }
       : r))
 
-  const manualQty = (idx,v)=>
-    setCart(p=>p.map((r,i)=> i===idx
-      ? { ...r, qty: Math.max(1, Math.min(parseInt(v)||1, r.quantity)) }
+  const manualQty = (idx, v) =>
+    setCart(p => p.map((r, i) => i === idx
+      ? { ...r, qty: Math.max(1, Math.min(parseInt(v) || 1, r.quantity)) }
       : r))
 
-  const remove = idx => setCart(p=>p.filter((_,i)=>i!==idx))
+  const remove = idx => setCart(p => p.filter((_, i) => i !== idx))
 
   const handleReturn = async () => {
     if (!cart.length) return alert('Корзина пуста')
+    setLoading(true)
 
     const payload = cart.map(i => ({
       sale_item: i.sale_item,
       quantity : i.qty,
       reason   : reason,
-      branch   : branch  // ⬅️ передаём филиал
+      branch   : branch
     }))
 
     try {
       await API.createReturn(payload)
+
+      setItems(prevItems => {
+        return prevItems.map(sale => ({
+          ...sale,
+          items: sale.items.map(item => {
+            const ret = cart.find(ci => ci.sale_item === item.id)
+            if (ret) {
+              if (item.quantity - ret.qty <= 0 && sale.branch === branch) {
+                return null
+              } else if (sale.branch !== branch) {
+                return { ...item, quantity: item.quantity - ret.qty }
+              } else {
+                return { ...item, quantity: item.quantity - ret.qty }
+              }
+            }
+            return item
+          }).filter(Boolean)
+        }))
+      })
+
       alert('Возврат оформлен')
       setCart([])
       navigate('/returns-report')
     } catch (e) {
       console.error('Ошибка возврата:', e)
       alert('Ошибка при возврате')
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <div style={{padding:24,maxWidth:900,margin:'0 auto',fontFamily:'sans-serif'}}>
+    <div style={{ padding: 24, maxWidth: 900, margin: '0 auto', fontFamily: 'sans-serif' }}>
       <h2>🔄 Возврат товара</h2>
 
       <div style={{ marginBottom: 20 }}>
@@ -123,6 +144,7 @@ const Return = () => {
         <select value={branch} onChange={e => setBranch(e.target.value)} style={{ padding: 6 }}>
           <option value="Сокулук">Сокулук</option>
           <option value="Беловодское">Беловодское</option>
+          <option value="Кара-Балта">Кара-Балта</option>
         </select>
       </div>
 
@@ -131,78 +153,115 @@ const Return = () => {
         placeholder="Сканируйте штрихкод…"
         onKeyDown={handleScan}
         autoFocus
-        style={{width:'100%',padding:12,fontSize:16,marginBottom:10}}
+        style={{ width: '100%', padding: 12, fontSize: 16, marginBottom: 10 }}
       />
 
       <input
         placeholder="Введите название товара…"
         value={searchName}
         onChange={handleSearchChange}
-        style={{width:'100%',padding:12,fontSize:16,marginBottom:5}}
+        style={{ width: '100%', padding: 12, fontSize: 16, marginBottom: 5 }}
       />
 
       {suggestions.length > 0 && (
-        <ul style={{border:'1px solid #ccc', listStyle:'none', margin:0, padding:10, background:'#fff', maxHeight:150, overflowY:'auto'}}>
+        <ul style={{ border: '1px solid #ccc', listStyle: 'none', margin: 0, padding: 10, background: '#fff', maxHeight: 150, overflowY: 'auto' }}>
           {suggestions.map((sug, idx) => (
-            <li key={idx} style={{padding:5, cursor:'pointer'}} onClick={() => selectSuggestion(sug)}>
+            <li key={idx} style={{ padding: 5, cursor: 'pointer' }} onClick={() => selectSuggestion(sug)}>
               {sug.name}
             </li>
           ))}
         </ul>
       )}
 
-      <div style={{marginBottom:20}}>
+      <div style={{ marginBottom: 20 }}>
         <label>Причина:&nbsp;</label>
-        <select value={reason} onChange={e=>setReason(e.target.value)}>
+        <select value={reason} onChange={e => setReason(e.target.value)}>
           <option value="customer">Покупатель вернул</option>
           <option value="defect">Дефект</option>
         </select>
       </div>
 
-      <table style={{width:'100%',borderCollapse:'collapse',marginBottom:20}}>
-        <thead style={{background:'#f0f0f0'}}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
+        <thead style={{ background: '#f0f0f0' }}>
           <tr>
             <th style={th}>Название</th>
             <th style={th}>Цена</th>
             <th style={th}>Кол-во</th>
             <th style={th}>Сумма</th>
-            <th style={th}/>
+            <th style={th}></th>
           </tr>
         </thead>
         <tbody>
-          {cart.map((it,idx)=>(
+          {cart.map((it, idx) => (
             <tr key={idx}>
               <td style={td}>{it.name}</td>
               <td style={td}>{(+it.price).toFixed(2)} сом</td>
               <td style={td}>
-                <button onClick={()=>changeQty(idx,-1)} style={btn}>−</button>
-                <input type="number" min={1} value={it.qty}
-                       onChange={e=>manualQty(idx,e.target.value)}
-                       style={{width:50,textAlign:'center'}}/>
-                <button onClick={()=>changeQty(idx,1)} style={btn}>+</button>
-                <div style={{fontSize:11,color:'#888'}}>Доступно: {it.quantity}</div>
+                <button onClick={() => changeQty(idx, -1)} style={btn}>−</button>
+                <input
+                  type="number"
+                  min={1}
+                  value={it.qty}
+                  onChange={e => manualQty(idx, e.target.value)}
+                  style={{ width: 50, textAlign: 'center' }}
+                />
+                <button onClick={() => changeQty(idx, 1)} style={btn}>+</button>
+                <div style={{ fontSize: 11, color: '#888' }}>Доступно: {it.quantity}</div>
               </td>
-              <td style={td}>{(it.qty*+it.price).toFixed(2)} сом</td>
+              <td style={td}>{(it.qty * +it.price).toFixed(2)} сом</td>
               <td style={td}>
-                <button onClick={()=>remove(idx)}
-                        style={{...btn,background:'#ff4d4f',color:'#fff'}}>×</button>
+                <button onClick={() => remove(idx)} style={{ ...btn, background: '#ff4d4f', color: '#fff' }}>×</button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <h3 style={{textAlign:'right'}}>К возврату: {total.toFixed(2)} сом</h3>
+      <h3 style={{ textAlign: 'right' }}>К возврату: {total.toFixed(2)} сом</h3>
 
-      <div style={{textAlign:'right',marginTop:20}}>
-        <button onClick={handleReturn}
-                style={{background:'#f39c12',color:'#fff',padding:'10px 20px',
-                        border:'none',cursor:'pointer'}}>
+      <div style={{ textAlign: 'right', marginTop: 20 }}>
+        <button
+          onClick={handleReturn}
+          style={{
+            background: '#f39c12',
+            color: '#fff',
+            padding: '10px 20px',
+            border: 'none',
+            cursor: 'pointer'
+          }}
+        >
           🛒 Оформить возврат
         </button>
       </div>
+
+      {loading && <PopupLoader />}
     </div>
   )
 }
+
+const PopupLoader = () => (
+  <div style={{
+    position: 'fixed',
+    top: 0, left: 0,
+    width: '100%',
+    height: '100%',
+    background: 'rgba(0,0,0,0.3)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999
+  }}>
+    <div style={{
+      background: '#fff',
+      padding: '30px 40px',
+      borderRadius: '10px',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+      fontSize: 18,
+      fontWeight: 500
+    }}>
+      ⏳ Оформляем возврат...
+    </div>
+  </div>
+)
 
 export default Return
