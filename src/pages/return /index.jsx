@@ -1,10 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { API } from '../../api'
 import { useNavigate } from 'react-router-dom'
 
-const th  = { border:'1px solid #ccc', padding:10, textAlign:'left' }
-const td  = { border:'1px solid #eee', padding:10 }
-const btn = { width:28, height:28, margin:'0 4px', border:'1px solid #ccc', background:'#fff', cursor:'pointer' }
+const th = { border: '1px solid #ccc', padding: 10, textAlign: 'left' }
+const td = { border: '1px solid #eee', padding: 10 }
+const btn = { width: 28, height: 28, margin: '0 4px', border: '1px solid #ccc', background: '#fff', cursor: 'pointer' }
+
+const BRANCH_URLS = {
+  'Сокулук': 'https://auncrm.pythonanywhere.com',
+  'Беловодское': 'https://aunbelovodskiy.pythonanywhere.com',
+  'Кара-Балта': 'https://aunkarabalta.pythonanywhere.com'
+}
 
 const Return = () => {
   const [items, setItems] = useState([])
@@ -20,23 +25,29 @@ const Return = () => {
   const total = cart.reduce((s, i) => s + i.qty * +i.price, 0)
 
   useEffect(() => {
-    API.getSales()
-      .then(r => setItems(r.data))
-      .catch(e => console.error('Ошибка загрузки позиций продаж', e))
-  }, [])
-
-  const allSaleItems = items.flatMap(sale =>
-    sale.items.map(si => ({ ...si, sale_item: si.id }))
-  )
+    const fetchSales = async () => {
+      setLoading(true)
+      try {
+        const res = await fetch(`${BRANCH_URLS[branch]}/clients/stocks/`)
+        const data = await res.json()
+        setItems(data)
+      } catch (e) {
+        console.error('Ошибка загрузки товаров:', e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchSales()
+  }, [branch])
 
   const handleScan = e => {
     if (e.key !== 'Enter') return
     const code = e.target.value.trim()
     if (!code) return
 
-    const item = allSaleItems.find(i => i.code === code)
+    const item = items.find(i => i.code?.split(',').map(c => c.trim()).includes(code))
     if (!item) {
-      alert('Позиция продажи с таким кодом не найдена')
+      alert('Позиция с таким штрихкодом не найдена')
       e.target.value = ''
       return
     }
@@ -45,49 +56,41 @@ const Return = () => {
     e.target.value = ''
   }
 
-  const handleSearchChange = (e) => {
+  const handleSearchChange = e => {
     const value = e.target.value
     setSearchName(value)
 
-    const filtered = allSaleItems.filter(i =>
-      i.name.toLowerCase().includes(value.toLowerCase())
-    )
+    const filtered = items.filter(i => i.name?.toLowerCase().includes(value.toLowerCase()))
     setSuggestions(filtered.slice(0, 5))
   }
 
-  const selectSuggestion = (item) => {
+  const selectSuggestion = item => {
     addToCart(item)
     setSearchName('')
     setSuggestions([])
   }
 
-  const addToCart = (item) => {
+  const addToCart = item => {
     setCart(prev => {
-      const ex = prev.find(p => p.sale_item === item.id)
+      const ex = prev.find(p => p.id === item.id)
       return ex
-        ? prev.map(p =>
-            p.sale_item === item.id
-              ? { ...p, qty: Math.min(p.qty + 1, item.quantity) }
-              : p)
+        ? prev.map(p => p.id === item.id ? { ...p, qty: Math.min(p.qty + 1, item.quantity) } : p)
         : [...prev, {
-            sale_item: item.id,
-            name     : item.name,
-            price    : item.price,
-            quantity : item.quantity,
-            qty      : 1
-          }]
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          code: item.code,
+          qty: 1
+        }]
     })
   }
 
   const changeQty = (idx, d) =>
-    setCart(p => p.map((r, i) => i === idx
-      ? { ...r, qty: Math.max(1, Math.min(r.qty + d, r.quantity)) }
-      : r))
+    setCart(p => p.map((r, i) => i === idx ? { ...r, qty: Math.max(1, Math.min(r.qty + d, r.quantity)) } : r))
 
   const manualQty = (idx, v) =>
-    setCart(p => p.map((r, i) => i === idx
-      ? { ...r, qty: Math.max(1, Math.min(parseInt(v) || 1, r.quantity)) }
-      : r))
+    setCart(p => p.map((r, i) => i === idx ? { ...r, qty: Math.max(1, Math.min(parseInt(v) || 1, r.quantity)) } : r))
 
   const remove = idx => setCart(p => p.filter((_, i) => i !== idx))
 
@@ -95,46 +98,47 @@ const Return = () => {
     if (!cart.length) return alert('Корзина пуста')
     setLoading(true)
 
-    const payload = cart.map(i => ({
-      sale_item: i.sale_item,
-      quantity : i.qty,
-      reason   : reason,
-      branch   : branch
-    }))
-
     try {
-      await API.createReturn(payload)
+      // 1. Отправка на склад
+      await Promise.all(cart.map(item => {
+        const payload = [{
+          name: item.name,
+          price: item.price,
+          quantity: item.qty,
+          code: item.code?.split(',').map(c => c.trim()).filter(Boolean) || [],
+          unit: 'шт',
+          price_seller: item.price,
+          fixed_quantity: item.qty
+        }]
+        return fetch(`https://auncrm2.pythonanywhere.com/clients/stocks/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+      }))
 
-      setItems(prevItems => {
-        return prevItems.map(sale => ({
-          ...sale,
-          items: sale.items.map(item => {
-            const ret = cart.find(ci => ci.sale_item === item.id)
-            if (ret) {
-              if (item.quantity - ret.qty <= 0 && sale.branch === branch) {
-                return null
-              } else if (sale.branch !== branch) {
-                return { ...item, quantity: item.quantity - ret.qty }
-              } else {
-                return { ...item, quantity: item.quantity - ret.qty }
-              }
-            }
-            return item
-          }).filter(Boolean)
-        }))
-      })
+      // 2. Удаление с выбранного филиала
+      const branchUrl = BRANCH_URLS[branch]  // <-- фикс: используем выбранный филиал
+      const responses = await Promise.all(
+        cart.map(item =>
+          fetch(`${branchUrl}/clients/stocks/${item.id}/`, { method: 'DELETE' })
+        )
+      )
 
-      alert('Возврат оформлен')
+      const failed = responses.filter(r => r && !r.ok)
+      if (failed.length > 0) {
+        throw new Error('Ошибка при удалении товаров из филиала')
+      }
+
+      alert('Возврат успешно оформлен и товары переданы на склад')
       setCart([])
-      navigate('/returns-report')
-    } catch (e) {
-      console.error('Ошибка возврата:', e)
-      alert('Ошибка при возврате')
+    } catch (error) {
+      console.error('Ошибка при возврате:', error)
+      alert('Произошла ошибка при возврате')
     } finally {
       setLoading(false)
     }
   }
-
   return (
     <div style={{ padding: 24, maxWidth: 900, margin: '0 auto', fontFamily: 'sans-serif' }}>
       <h2>🔄 Возврат товара</h2>
@@ -142,9 +146,7 @@ const Return = () => {
       <div style={{ marginBottom: 20 }}>
         <label>Филиал:&nbsp;</label>
         <select value={branch} onChange={e => setBranch(e.target.value)} style={{ padding: 6 }}>
-          <option value="Сокулук">Сокулук</option>
-          <option value="Беловодское">Беловодское</option>
-          <option value="Кара-Балта">Кара-Балта</option>
+          {Object.keys(BRANCH_URLS).map(b => <option key={b} value={b}>{b}</option>)}
         </select>
       </div>
 
