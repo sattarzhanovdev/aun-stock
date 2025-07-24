@@ -19,11 +19,15 @@ const EditStock = ({ setActive }) => {
 
   const BASE_URL = 'https://auncrm2.pythonanywhere.com' // Только Беловодское
 
+  const generateBarcode = () => {
+    return Array.from({ length: 13 }, () => Math.floor(Math.random() * 10)).join('')
+  }
+
   const handleSave = async () => {
-    const codeArray = code.split(',').map(c => c.trim()).filter(Boolean)
+    const codeValue = code.trim() || generateBarcode()
 
     const payload = {
-      code: code,
+      code: codeValue,
       name,
       quantity: +quantity || 0,
       price: +price || 0,
@@ -97,11 +101,11 @@ const EditStock = ({ setActive }) => {
 
       <div className={c.addExpense__form}>
         <div className={c.addExpense__form__item}>
-          <label htmlFor="code">Код</label>
+          <label htmlFor="code">Штрихкод</label>
           <input
             id="code"
             value={code}
-            placeholder="Код товара"
+            placeholder="Введите штрихкод или оставьте пустым"
             onChange={e => setCode(e.target.value)}
           />
         </div>
