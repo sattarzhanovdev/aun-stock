@@ -39,6 +39,10 @@ const AddStock = ({ setActive }) => {
     )
   }
 
+  const generateBarcode = () => {
+    return Array.from({ length: 13 }, () => Math.floor(Math.random() * 10)).join('')
+  }
+
   const addRow = () => setRows(prev => [...prev, emptyRow])
 
   const handleSave = async () => {
@@ -47,7 +51,7 @@ const AddStock = ({ setActive }) => {
 
     const payload = rows.map(item => ({
       name: item.name,
-      code: item.code.split(',').map(c => c.trim()).filter(Boolean),
+      code: (item.code ? item.code : generateBarcode()).split(',').map(c => c.trim()).filter(Boolean),
       quantity: +item.quantity || 0,
       price: +item.price || 0,
       price_seller: +item.price_seller || 0,
@@ -104,71 +108,75 @@ const AddStock = ({ setActive }) => {
 
       {rows.map((row, idx) => (
         <div key={idx} className={c.addExpense__form}>
-          <div className={c.addExpense__form__item}>
-            <label htmlFor={`code-${idx}`}>Код</label>
-            <input
-              id={`code-${idx}`}
-              value={row.code}
-              placeholder="Код товара (через запятую)"
-              onChange={e => handleChange(idx, 'code', e.target.value)}
-            />
+          <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
+            <div className={c.addExpense__form__item} style={{ flex: 1 }}>
+              <label htmlFor={`code-${idx}`}>Штрихкод</label>
+              <input
+                id={`code-${idx}`}
+                value={row.code}
+                placeholder="Введите штрихкод или оставьте пустым"
+                onChange={e => handleChange(idx, 'code', e.target.value)}
+              />
+            </div>
+
+            <div className={c.addExpense__form__item} style={{ flex: 1 }}>
+              <label htmlFor={`name-${idx}`}>Наименование</label>
+              <input
+                id={`name-${idx}`}
+                value={row.name}
+                placeholder="Введите наименование"
+                onChange={e => handleChange(idx, 'name', e.target.value)}
+              />
+            </div>
+
+            <div className={c.addExpense__form__item} style={{ flex: 1 }}>
+              <label htmlFor={`cat-${idx}`}>Категория</label>
+              <select
+                id={`cat-${idx}`}
+                value={row.category}
+                onChange={e => handleChange(idx, 'category', e.target.value)}
+              >
+                <option value="">‒ выберите ‒</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div className={c.addExpense__form__item}>
-            <label htmlFor={`name-${idx}`}>Наименование</label>
-            <input
-              id={`name-${idx}`}
-              value={row.name}
-              placeholder="Введите наименование"
-              onChange={e => handleChange(idx, 'name', e.target.value)}
-            />
-          </div>
+          <div style={{ display: 'flex', gap: '20px' }}>
+            <div className={c.addExpense__form__item} style={{ flex: 1 }}>
+              <label htmlFor={`qty-${idx}`}>Количество</label>
+              <input
+                id={`qty-${idx}`}
+                type="number"
+                value={row.quantity}
+                placeholder="0"
+                onChange={e => handleChange(idx, 'quantity', e.target.value)}
+              />
+            </div>
 
-          <div className={c.addExpense__form__item}>
-            <label htmlFor={`cat-${idx}`}>Категория</label>
-            <select
-              id={`cat-${idx}`}
-              value={row.category}
-              onChange={e => handleChange(idx, 'category', e.target.value)}
-            >
-              <option value="">‒ выберите ‒</option>
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
-            </select>
-          </div>
+            <div className={c.addExpense__form__item} style={{ flex: 1 }}>
+              <label htmlFor={`ps-${idx}`}>Цена поставщика</label>
+              <input
+                id={`ps-${idx}`}
+                type="number"
+                value={row.price_seller}
+                placeholder="0"
+                onChange={e => handleChange(idx, 'price_seller', e.target.value)}
+              />
+            </div>
 
-          <div className={c.addExpense__form__item}>
-            <label htmlFor={`qty-${idx}`}>Количество</label>
-            <input
-              id={`qty-${idx}`}
-              type="number"
-              value={row.quantity}
-              placeholder="0"
-              onChange={e => handleChange(idx, 'quantity', e.target.value)}
-            />
-          </div>
-
-          <div className={c.addExpense__form__item}>
-            <label htmlFor={`ps-${idx}`}>Цена поставщика</label>
-            <input
-              id={`ps-${idx}`}
-              type="number"
-              value={row.price_seller}
-              placeholder="0"
-              onChange={e => handleChange(idx, 'price_seller', e.target.value)}
-            />
-          </div>
-
-          <div className={c.addExpense__form__item}>
-            <label htmlFor={`pr-${idx}`}>Цена продажи</label>
-            <input
-              id={`pr-${idx}`}
-              type="number"
-              value={row.price}
-              placeholder="0"
-              onChange={e => handleChange(idx, 'price', e.target.value)}
-            />
+            <div className={c.addExpense__form__item} style={{ flex: 1 }}>
+              <label htmlFor={`pr-${idx}`}>Цена продажи</label>
+              <input
+                id={`pr-${idx}`}
+                type="number"
+                value={row.price}
+                placeholder="0"
+                onChange={e => handleChange(idx, 'price', e.target.value)}
+              />
+            </div>
           </div>
         </div>
       ))}
@@ -189,7 +197,6 @@ const AddStock = ({ setActive }) => {
   )
 }
 
-// 👇 Встроенный компонент модального окна загрузки
 const PopupLoader = () => (
   <div style={{
     position: 'fixed',

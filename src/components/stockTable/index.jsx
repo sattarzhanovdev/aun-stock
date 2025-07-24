@@ -62,6 +62,9 @@ const StockTable = () => {
     return filtered;
   };
 
+  console.log(clients?.reduce((a, b) => a+Number(b.price*b.quantity), 0));
+  
+
   return (
     <div className={c.workers}>
       {/* <div style={{ marginBottom: 20 }}>
@@ -97,7 +100,7 @@ const StockTable = () => {
               <th>{filterGoods()?.reduce((a, b) => Number(a) + Number(b.fixed_quantity), 0)}</th>
               <th>{filterGoods()?.reduce((a, b) => Number(a) + Number(b.quantity), 0)}</th>
               <th>{filterGoods()?.reduce((a, b) => Number(a) + Number(b.price_seller * b.fixed_quantity), 0)} сом</th>
-              <th>{filterGoods()?.reduce((a, b) => Number(a) + Number(b.price * b.fixed_quantity), 0)} сом</th>
+              <th>{filterGoods()?.reduce((a, b) => Number(a) + Number((b.price * b.fixed_quantity) - (b.price_seller * b.fixed_quantity)), 0)} сом</th>
               <th></th>
               <th></th>
             </tr>
