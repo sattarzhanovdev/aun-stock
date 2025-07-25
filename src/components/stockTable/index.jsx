@@ -15,13 +15,13 @@ const StockTable = () => {
   const [selectedCategory, setSelectedCategory] = React.useState('');
   const [selectedBranch, setSelectedBranch] = React.useState('stock');
 
+  const printRef = React.useRef();
+
   const branchAPI = selectedBranch === 'sokuluk'
     ? 'https://auncrm.pythonanywhere.com'
     : 'https://auncrm2.pythonanywhere.com';
 
   const currentDate = new Date();
-  const currentYear = currentDate.getFullYear();
-  const currentMonth = currentDate.getMonth();
 
   React.useEffect(() => {
     const monthName = currentDate.toLocaleString('ru', { month: 'long' });
@@ -62,22 +62,36 @@ const StockTable = () => {
     return filtered;
   };
 
-  console.log(clients?.reduce((a, b) => a+Number(b.price*b.quantity), 0));
-  
+  const handlePrint = () => {
+    const printContents = printRef.current.innerHTML;
+    const newWin = window.open('', '', 'width=800,height=600');
+    newWin.document.write(`
+      <html>
+        <head>
+          <title>Накладная</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #000; padding: 5px; text-align: left; }
+            h2 { text-align: center; }
+          </style>
+        </head>
+        <body>
+          ${printContents}
+        </body>
+      </html>
+    `);
+    newWin.document.close();
+    newWin.focus();
+    newWin.print();
+    newWin.close();
+  };
 
   return (
     <div className={c.workers}>
-      {/* <div style={{ marginBottom: 20 }}>
-        <label>Филиал:&nbsp;</label>
-        <select
-          value={selectedBranch}
-          onChange={e => setSelectedBranch(e.target.value)}
-          style={{ padding: 6 }}
-        >
-          <option value="stock" selected>Склад</option>
-          <option value="sokuluk">Сокулук</option>
-        </select>
-      </div> */}
+      <button onClick={handlePrint} style={{ marginBottom: 20 }}>
+        🖨️ Печать накладной
+      </button>
 
       <div className={c.table}>
         <select
@@ -162,6 +176,44 @@ const StockTable = () => {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Накладная для печати */}
+      <div ref={printRef} style={{ display: 'none' }}>
+        <h2>Накладная</h2>
+        {/* <p><b>Дата:</b> {new Date().toLocaleDateString()}</p> */}
+        <table>
+          <thead>
+            <tr>
+              <th>№</th>
+              <th>Наименование</th>
+              <th>Кол-во</th>
+              <th>Цена</th>
+              <th>Сумма</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filterGoods()?.map((item, i) => (
+              <tr key={i}>
+                <td>{i + 1}</td>
+                <td>{item.name}</td>
+                <td>{item.fixed_quantity}</td>
+                <td>{item.price_seller}</td>
+                <td>{item.fixed_quantity * item.price_seller}</td>
+              </tr>
+            ))}
+            <tr>
+              <td colSpan="4" style={{ textAlign: 'right', fontWeight: 'bold' }}>Итого:</td>
+              <td>
+                {filterGoods()?.reduce((a, b) => a + b.fixed_quantity * b.price_seller, 0)} сом
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div style={{ marginTop: '30px' }}>
+          <p><b>Сдал:</b> _________________________</p>
+          <p><b>Принял:</b> _______________________</p>
+        </div>
       </div>
 
       {editActive && <Components.EditStock setActive={setEditActive} selectedBranch={selectedBranch} />}
