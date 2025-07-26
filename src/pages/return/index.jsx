@@ -6,6 +6,7 @@ const BRANCH_URLS = {
   'Склад': 'https://auncrm2.pythonanywhere.com',
   'Беловодское': 'https://aunbelovodskiy.pythonanywhere.com',
   'Кара-Балта': 'https://aunkarabalta.pythonanywhere.com',
+  'Токмок': null,
   'Аптека': null,
   'Баня': null,
   'Хайван': null,
