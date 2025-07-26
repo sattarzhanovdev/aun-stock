@@ -13,7 +13,11 @@ const BRANCH_URLS = {
   'Склад': 'https://auncrm2.pythonanywhere.com',
   'Беловодское': 'https://aunbelovodskiy.pythonanywhere.com',
   'Кара-Балта': 'https://aunkarabalta.pythonanywhere.com',
-  'Токмок (Ярмарка)': null // не добавляем туда товар
+  'Аптека ': null, // не добавляем туда товар
+  'Баня': null, // не добавляем туда товар
+  'Хайван': null, // не добавляем туда товар
+  'Кубаныч': null, // не добавляем туда товар
+  'Дастан': null, // не добавляем туда товар
 }
 
 const Kassa = () => {

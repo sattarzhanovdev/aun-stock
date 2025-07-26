@@ -4,7 +4,7 @@ import { Pages } from "../pages"
 import CodePrint from "../pages/codes-print"
 import KassaReport from "../pages/kassa-report"
 import Receipt from "../pages/receipt"
-import Return from "../pages/return "
+import Return from "../pages/return"
 
 export const NavList = [
   {

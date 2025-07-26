@@ -5,7 +5,7 @@ import Expenses from "./expenses";
 import Storage from "./storage";
 import Kassa from "./kassa";
 import Codes from "./codes";
-import Return from "./return ";
+import Return from "./return";
 
 export const Pages = {
   Main,
