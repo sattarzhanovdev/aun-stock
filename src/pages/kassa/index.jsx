@@ -12,7 +12,8 @@ const BRANCH_URLS = {
   'Сокулук': 'https://auncrm.pythonanywhere.com',
   'Склад': 'https://auncrm2.pythonanywhere.com',
   'Беловодское': 'https://aunbelovodskiy.pythonanywhere.com',
-  'Кара-Балта': 'https://aunkarabalta.pythonanywhere.com'
+  'Кара-Балта': 'https://aunkarabalta.pythonanywhere.com',
+  'Токмок (Ярмарка)': null // не добавляем туда товар
 }
 
 const Kassa = () => {
@@ -23,7 +24,7 @@ const Kassa = () => {
   const [suggest, setSuggest] = useState([])
   const [highlight, setHighlight] = useState(-1)
   const [categories, setCategories] = useState([])
-  const [loading, setLoading] = useState(false) // ⬅️ loading popup
+  const [loading, setLoading] = useState(false)
 
   const scanRef = useRef()
   const nameRef = useRef()
@@ -163,29 +164,32 @@ const Kassa = () => {
           await fetch(fromUrl, { method: 'DELETE' })
         }
 
-        const toUrl = `${BRANCH_URLS[branch]}/clients/stocks/`
-        const stockPayload = {
-          code: item.code.split(',').map(c => c.trim()),
-          name: item.name,
-          quantity: item.qty,
-          price: item.price,
-          price_seller: item.price_seller || 0,
-          category_id: categories.find(val => val.name === item.category)?.id || null,
-          unit: item.unit,
-          fixed_quantity: item.qty
-        }
+        // Если выбранный филиал имеет API — отправляем товар
+        if (BRANCH_URLS[branch]) {
+          const toUrl = `${BRANCH_URLS[branch]}/clients/stocks/`
+          const stockPayload = {
+            code: item.code.split(',').map(c => c.trim()),
+            name: item.name,
+            quantity: item.qty,
+            price: item.price,
+            price_seller: item.price_seller || 0,
+            category_id: categories.find(val => val.name === item.category)?.id || null,
+            unit: item.unit,
+            fixed_quantity: item.qty
+          }
 
-        const res = await fetch(toUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify([stockPayload]),
-        })
+          const res = await fetch(toUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify([stockPayload]),
+          })
 
-        if (!res.ok) {
-          console.error(await res.json())
-          alert(`Ошибка при добавлении товара: ${item.name}`)
-          setLoading(false)
-          return
+          if (!res.ok) {
+            console.error(await res.json())
+            alert(`Ошибка при добавлении товара: ${item.name}`)
+            setLoading(false)
+            return
+          }
         }
 
         dispatchItems.push({
@@ -197,6 +201,7 @@ const Kassa = () => {
         })
       }
 
+      // История отправки всегда пишется в Сокулук
       const dispatchRes = await fetch(`${BRANCH_URLS['Сокулук']}/clients/dispatches/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
