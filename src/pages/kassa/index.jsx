@@ -13,13 +13,13 @@ const BRANCH_URLS = {
   'Склад': 'https://auncrm2.pythonanywhere.com',
   'Беловодское': 'https://aunbelovodskiy.pythonanywhere.com',
   'Кара-Балта': 'https://aunkarabalta.pythonanywhere.com',
-  'Токмок ': null, // не добавляем туда товар
-  'Аптека ': null, // не добавляем туда товар
-  'Баня': null, // не добавляем туда товар
-  'Хайван': null, // не добавляем туда товар
-  'Кубатбек': null, // не добавляем туда товар
-  'Калыбек': null, // не добавляем туда товар
-  'Бартыбек': null // не добавляем туда товар
+  'Токмок ': null,
+  'Аптека ': null,
+  'Баня': null,
+  'Хайван': null,
+  'Кубатбек': null,
+  'Калыбек': null,
+  'Бартыбек': null
 }
 
 const Kassa = () => {
@@ -54,19 +54,29 @@ const Kassa = () => {
       .catch(e => console.error('Ошибка загрузки товаров', e))
   }, [])
 
+  // Автоматическое восстановление отложенной кассы
+  useEffect(() => {
+    const delayed = localStorage.getItem('delayedCart')
+    if (delayed) {
+      if (window.confirm('Есть отложенная касса. Восстановить?')) {
+        try {
+          const parsed = JSON.parse(delayed)
+          if (Array.isArray(parsed)) setCart(parsed)
+          localStorage.removeItem('delayedCart')
+        } catch (e) {
+          console.error('Ошибка восстановления кассы', e)
+        }
+      }
+    }
+  }, [])
+
   const handleScan = e => {
     if (e.key !== 'Enter') return
     const code = e.target.value.trim()
     if (!code) return
-
     const matches = goods.filter(g => g.code_array.includes(code))
-
-    if (matches.length === 0) {
-      alert('Товар не найден')
-    } else {
-      addToCart(matches[0])
-    }
-
+    if (matches.length === 0) alert('Товар не найден')
+    else addToCart(matches[0])
     e.target.value = ''
   }
 
@@ -74,7 +84,6 @@ const Kassa = () => {
     const val = e.target.value
     setQuery(val)
     if (val.length < 2) return setSuggest([])
-
     const re = new RegExp(val, 'i')
     setSuggest(goods.filter(g => re.test(g.name)).slice(0, 8))
     setHighlight(-1)
@@ -170,7 +179,6 @@ const Kassa = () => {
           await fetch(fromUrl, { method: 'DELETE' })
         }
 
-        // Если выбранный филиал имеет API — отправляем товар
         if (BRANCH_URLS[branch]) {
           const toUrl = `${BRANCH_URLS[branch]}/clients/stocks/`
           const stockPayload = {
@@ -207,7 +215,6 @@ const Kassa = () => {
         })
       }
 
-      // История отправки всегда пишется в Сокулук
       const dispatchRes = await fetch(`${BRANCH_URLS['Сокулук']}/clients/dispatches/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -310,6 +317,40 @@ const Kassa = () => {
       <h3 style={{ textAlign: 'right' }}>Итого: {total.toFixed(2)} сом</h3>
 
       <div style={{ textAlign: 'right' }}>
+        <button
+          onClick={() => {
+            localStorage.setItem('delayedCart', JSON.stringify(cart))
+            alert('Касса отложена ✅')
+            setCart([])
+          }}
+          style={{ ...sendBtn, background: '#f39c12', marginRight: 12 }}
+        >
+          ⏸ Отложить кассу
+        </button>
+
+        <button
+          onClick={() => {
+            const delayed = localStorage.getItem('delayedCart')
+            if (!delayed) return alert('Нет отложенной кассы')
+            try {
+              const parsed = JSON.parse(delayed)
+              if (Array.isArray(parsed)) {
+                setCart(parsed)
+                localStorage.removeItem('delayedCart')
+                alert('Касса восстановлена ✅')
+              } else {
+                alert('Неверный формат отложенной кассы')
+              }
+            } catch (e) {
+              console.error('Ошибка восстановления:', e)
+              alert('Не удалось восстановить кассу')
+            }
+          }}
+          style={{ ...sendBtn, background: '#27ae60', marginRight: 12 }}
+        >
+          🔄 Восстановить кассу
+        </button>
+
         <button onClick={handleSendToStock} style={sendBtn}>📤 Добавить на склад</button>
       </div>
 
