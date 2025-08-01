@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 const BRANCH_URLS = {
   'Сокулук': 'https://auncrm.pythonanywhere.com',
-  'Беловодское': 'https://auncrm2.pythonanywhere.com',
+  'Беловодское': 'https://aunbelovodskiy.pythonanywhere.com',
   'Кара-Балта': 'https://aunkarabalta.pythonanywhere.com'
 };
 
