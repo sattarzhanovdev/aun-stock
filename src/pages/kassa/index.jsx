@@ -19,7 +19,9 @@ const BRANCH_URLS = {
   'Хайван': null,
   'Кубатбек': null,
   'Калыбек': null,
-  'Бартыбек': null
+  'Батырбек': null,
+  'Айжан': null,
+  'Эрзи': null
 }
 
 const Kassa = () => {
