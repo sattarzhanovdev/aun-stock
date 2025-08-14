@@ -221,7 +221,7 @@ const Kassa = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: dispatchItems,
+          items_write: dispatchItems,
           recipient: branch
         })
       })
