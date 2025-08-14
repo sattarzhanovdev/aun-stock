@@ -4,13 +4,21 @@ import c from './workers.module.scss'
 
 const API_BASE = 'https://auncrm.pythonanywhere.com'
 
+const toNum = (v) => {
+  const n = typeof v === 'string' ? v.replace(',', '.').trim() : v
+  const x = Number(n)
+  return Number.isFinite(x) ? x : 0
+}
+const money = (n) => new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(toNum(n))
+
 const DispatchHistory = () => {
   const [month, setMonth] = React.useState('')
   const [data, setData] = React.useState(null)
   const [selected, setSelected] = React.useState(null)
 
-  // editable "Кому"
+  // локально редактируемые поля
   const [recipient, setRecipient] = React.useState('')
+  const [rows, setRows] = React.useState([]) // [{id, name, unit, quantity, price, total}]
   const [saving, setSaving] = React.useState(false)
 
   const printRef = useRef()
@@ -31,11 +39,39 @@ const DispatchHistory = () => {
       .catch(err => console.error('Ошибка загрузки отправок:', err))
   }, [])
 
+  const onPickRow = (item) => {
+    setSelected(item)
+    setRecipient(item.recipient || '')
+    setRows((item.items || []).map(r => ({
+      id: r.id, name: r.name, unit: r.unit || 'шт',
+      quantity: toNum(r.quantity),
+      price: toNum(r.price),
+      total: toNum(r.total)
+    })))
+  }
+
+  const recalcRow = (idx, patch) => {
+    setRows(prev => {
+      const next = [...prev]
+      const row = { ...next[idx], ...patch }
+      const q = toNum(row.quantity)
+      const p = toNum(row.price)
+      row.total = +(q * p).toFixed(2)
+      next[idx] = row
+      return next
+    })
+  }
+
+  const calcTotal = React.useMemo(
+    () => rows.reduce((s, r) => s + toNum(r.total), 0),
+    [rows]
+  )
+
   const handlePrint = () => {
     const printContents = printRef.current.innerHTML
     const printWindow = window.open('', '', 'height=600,width=800')
     printWindow.document.write('<html><head><title>Накладная</title>')
-    printWindow.document.write('<style>table { width: 100%; border-collapse: collapse } th, td { border: 1px solid #000; padding: 5px; } body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}</style>')
+    printWindow.document.write('<style>table{width:100%;border-collapse:collapse} th,td{border:1px solid #000;padding:5px} body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}</style>')
     printWindow.document.write('</head><body class="pagebreak">')
     printWindow.document.write(printContents)
     printWindow.document.write('</body></html>')
@@ -56,8 +92,7 @@ const DispatchHistory = () => {
     element.style.overflow = 'visible'
     element.style.height = 'auto'
 
-    const safeRecipient = (recipient || selected?.recipient || 'Получатель')
-      .replace(/[\\/:*?"<>|]/g, '_')
+    const safeRecipient = (recipient || selected?.recipient || 'Получатель').replace(/[\\/:*?"<>|]/g, '_')
 
     const opt = {
       margin: 0.5,
@@ -75,24 +110,42 @@ const DispatchHistory = () => {
     })
   }
 
-  const handleSaveRecipient = async () => {
+  const handleSaveBackend = async () => {
     if (!selected) return
     try {
       setSaving(true)
+      // готовим только то, что нужно бэку
+      const payload = {
+        recipient: recipient || '',
+        items: rows.map(r => ({
+          id: r.id,
+          quantity: toNum(r.quantity),
+          price: toNum(r.price),
+          // total на сервере пересчитается, можно не слать
+        })),
+      }
+
       const res = await fetch(`${API_BASE}/clients/dispatches/${selected.id}/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           // 'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
         },
-        body: JSON.stringify({ recipient: recipient || '' }),
+        body: JSON.stringify(payload),
       })
-      if (!res.ok) throw new Error('Не удалось сохранить получателя')
+      if (!res.ok) throw new Error('Не удалось сохранить изменения')
       const updated = await res.json()
 
-      setData(prev => prev.map(row => (row.id === updated.id ? { ...row, ...updated } : row)))
-      setSelected(prev => (prev ? { ...prev, ...updated } : prev))
-      alert('Сохранено')
+      // Обновляем таблицу и выбранную запись
+      setData(prev => prev.map(x => (x.id === updated.id ? { ...x, ...updated } : x)))
+      setSelected(updated)
+      setRecipient(updated.recipient || '')
+      setRows((updated.items || []).map(r => ({
+        id: r.id, name: r.name, unit: r.unit || 'шт',
+        quantity: toNum(r.quantity), price: toNum(r.price), total: toNum(r.total)
+      })))
+
+      alert('Сохранено в backend')
     } catch (e) {
       console.error(e)
       alert('Ошибка при сохранении')
@@ -118,17 +171,10 @@ const DispatchHistory = () => {
           </thead>
           <tbody>
             {data && data.map((item, index) => (
-              <tr
-                key={index}
-                onClick={() => {
-                  setSelected(item)
-                  setRecipient(item.recipient || '')
-                }}
-                style={{ cursor: 'pointer' }}
-              >
+              <tr key={index} onClick={() => onPickRow(item)} style={{ cursor: 'pointer' }}>
                 <td>{new Date(item.date).toLocaleDateString('ru-RU')}</td>
                 <td>{item.recipient}</td>
-                <td>{item.total} сом</td>
+                <td>{money(item.total)} сом</td>
               </tr>
             ))}
           </tbody>
@@ -138,7 +184,7 @@ const DispatchHistory = () => {
       {selected && (
         <div className={c.popup}>
           {/* Панель редактирования (не печатается) */}
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 10 }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
             <label style={{ whiteSpace: 'nowrap' }}>
               Кому:&nbsp;
               <input
@@ -149,6 +195,12 @@ const DispatchHistory = () => {
                 style={{ padding: 6, minWidth: 260 }}
               />
             </label>
+            <button onClick={handleSaveBackend} disabled={saving}>
+              {saving ? 'Сохранение…' : '💾 Сохранить в backend'}
+            </button>
+            <button onClick={handlePrint}>🖨️ Печать</button>
+            <button onClick={handleDownloadPDF}>📄 PDF</button>
+            <button onClick={() => setSelected(null)}>Закрыть</button>
           </div>
 
           {/* Печатаемая область */}
@@ -164,26 +216,49 @@ const DispatchHistory = () => {
                 <tr>
                   <th>№ п/п</th>
                   <th>Наименование</th>
-                  <th>Единица измерения</th>
-                  <th>Количество</th>
-                  <th>Цена (сом)</th>
+                  <th>Ед.</th>
+                  <th style={{ width: 120 }}>Количество</th>
+                  <th style={{ width: 140 }}>Цена (сом)</th>
                   <th>Сумма (сом)</th>
                 </tr>
               </thead>
               <tbody>
-                {selected.items.map((item, idx) => (
-                  <tr key={idx}>
+                {rows.map((r, idx) => (
+                  <tr key={r.id}>
                     <td style={{ textAlign: 'center' }}>{idx + 1}</td>
-                    <td>{item.name}</td>
-                    <td style={{ textAlign: 'center' }}>шт</td>
-                    <td style={{ textAlign: 'center' }}>{item.quantity}</td>
-                    <td style={{ textAlign: 'right' }}>{item.price}</td>
-                    <td style={{ textAlign: 'right' }}>{item.total}</td>
+                    <td>{r.name}</td>
+                    <td style={{ textAlign: 'center' }}>{r.unit || 'шт'}</td>
+
+                    {/* Количество — редактируемое */}
+                    <td style={{ textAlign: 'center' }}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={r.quantity}
+                        onChange={(e) => recalcRow(idx, { quantity: e.target.value })}
+                        style={{ width: '100%', boxSizing: 'border-box', textAlign: 'right' }}
+                      />
+                    </td>
+
+                    {/* Цена — редактируемая */}
+                    <td style={{ textAlign: 'center' }}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={r.price}
+                        onChange={(e) => recalcRow(idx, { price: e.target.value })}
+                        style={{ width: '100%', boxSizing: 'border-box', textAlign: 'right' }}
+                      />
+                    </td>
+
+                    {/* Сумма — авто */}
+                    <td style={{ textAlign: 'right' }}>{money(r.total)}</td>
                   </tr>
                 ))}
-                {Array.from({ length: Math.max(10 - selected.items.length, 0) }).map((_, idx) => (
-                  <tr key={`empty-${idx}`}>
-                    <td style={{ textAlign: 'center' }}>{selected.items.length + idx + 1}</td>
+
+                {Array.from({ length: Math.max(10 - rows.length, 0) }).map((_, i) => (
+                  <tr key={`empty-${i}`}>
+                    <td style={{ textAlign: 'center' }}>{rows.length + i + 1}</td>
                     <td colSpan={5}>&nbsp;</td>
                   </tr>
                 ))}
@@ -191,7 +266,7 @@ const DispatchHistory = () => {
             </table>
 
             <div style={{ marginTop: 10, textAlign: 'right' }}>
-              <p><strong>Итого:</strong> {selected.total} сом</p>
+              <p><strong>Итого:</strong> {money(calcTotal)} сом</p>
               <p>В том числе НДС (0%)</p>
             </div>
 
@@ -207,15 +282,6 @@ const DispatchHistory = () => {
                 <p>Ф.И.О.</p>
               </div>
             </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
-            <button onClick={handleSaveRecipient} disabled={saving}>
-              {saving ? 'Сохранение…' : '💾 Сохранить в backend'}
-            </button>
-            <button onClick={handlePrint}>🖨️ Распечатать</button>
-            <button onClick={handleDownloadPDF}>📄 Сохранить PDF</button>
-            <button onClick={() => setSelected(null)}>Закрыть</button>
           </div>
         </div>
       )}
