@@ -17,6 +17,7 @@ const BRANCH_URLS = {
   'Аптека ': null,
   'Баня': null,
   'Хайван': null,
+  'Дастан': null,
   'Кубатбек': null,
   'Калыбек': null,
   'Батырбек': null,
